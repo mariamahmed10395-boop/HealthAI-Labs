@@ -2,93 +2,86 @@
 # Stage 1: Builder
 # =============================
 FROM python:3.11-slim AS builder
-
 WORKDIR /build
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    p7zip-full \
-    gcc \
-    python3-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+  p7zip-full \
+  gcc \
+  wget \
+  python3-dev \
+  libpq-dev \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+  pip install --no-cache-dir -r requirements.txt
 
 # Download and extract MRI model
 RUN wget -q -O MRI.7z https://github.com/co-op-projects-to-boost-my-experience/HealthAI-Labs/releases/download/v1.0.3/MRI.7z && \
-    7z x MRI.7z -o/build -y && \
-    rm MRI.7z
+  7z x MRI.7z -o/build -y && \
+  rm MRI.7z
 
 # Download and extract CKD models
 RUN wget -q -O CKD.7z https://github.com/co-op-projects-to-boost-my-experience/HealthAI-Labs/releases/download/v1.0.2/CKD.7z && \
-    7z x CKD.7z -o/build -y && \
-    rm CKD.7z
+  7z x CKD.7z -o/build -y && \
+  rm CKD.7z
 
 # Verify model files exist
 RUN test -d /build/MRI && test -d /build/CKD && \
-    echo "✅ Models downloaded successfully"
+  echo "Models extracted successfully"
 
 # =============================
 # Stage 2: Production
 # =============================
 FROM python:3.11-slim
-
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    TZ=UTC
+  PYTHONDONTWRITEBYTECODE=1 \
+  TZ=UTC
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install only runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    libgl1 \
-    libglib2.0-0 \
-    libpq5 \
-    tzdata \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean \
-    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
-    && echo $TZ > /etc/timezone
+  curl \
+  libgl1 \
+  libglib2.0-0 \
+  libpq5 \
+  tzdata \
+  && rm -rf /var/lib/apt/lists/* \
+  && apt-get clean \
+  && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+  && echo $TZ > /etc/timezone
+
+# Create non-root user BEFORE any COPY --chown
+RUN groupadd -r healthai -g 1000 && \
+  useradd -r -u 1000 -g healthai -m -s /bin/bash healthai
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy models from builder
+# Copy extracted models from builder
 COPY --from=builder /build/MRI /app/MRI
 COPY --from=builder /build/CKD /app/CKD
-COPY ./ASCVD_Risk_Estimator.pkl /app/ASCVD_Risk_Estimator.pkl
 
-# Create non-root user with specific UID/GID
-RUN groupadd -r healthai -g 1000 && \
-    useradd -r -u 1000 -g healthai -m -s /bin/bash healthai
-
-# Copy application code
+# Copy remaining assets and app code
+COPY ASCVD_Risk_Estimator.pkl ./
 COPY --chown=healthai:healthai app.py auth.py db.py ./
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads logs && \
-    chown -R healthai:healthai /app && \
-    chmod -R 755 /app && \
-    chmod -R 777 /app/uploads /app/logs
-
-# DON'T switch to non-root user - comment out to fix permissions
-# USER healthai
+  chown -R healthai:healthai /app && \
+  chmod -R 755 /app && \
+  chmod -R 777 /app/uploads /app/logs
 
 EXPOSE 8000
 
-# Start command
 CMD ["uvicorn", "app:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "1", \
-     "--log-level", "info"]
+  "--host", "0.0.0.0", \
+  "--port", "8000", \
+  "--workers", "1", \
+  "--log-level", "info"]

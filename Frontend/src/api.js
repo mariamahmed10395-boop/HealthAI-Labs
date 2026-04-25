@@ -37,32 +37,32 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const originalRequest = error.config;
-    
-    // Handle 401 Unauthorized
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
-      // Clear local storage
+
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
-      
-      // Dispatch custom event for AuthContext to catch
       window.dispatchEvent(new Event('auth_expired'));
-      
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
+
+      // ✅ Don't redirect if we're already on an auth page
+      // ✅ Don't redirect if this is the background /auth/me check
+      const isAuthRoute = window.location.pathname.includes('/login') ||
+                          window.location.pathname.includes('/signup');
+      const isAuthEndpoint = originalRequest.url?.includes('/auth/');
+
+      if (!isAuthRoute && !isAuthEndpoint) {
         window.location.href = '/login?session=expired';
       }
     }
-    
-    // Format error message
-    const errorMessage = error.response?.data?.detail || 
-                         error.response?.data?.message || 
-                         error.message || 
+
+    const errorMessage = error.response?.data?.detail ||
+                         error.response?.data?.message ||
+                         error.message ||
                          'Network error occurred';
-    
+
     console.error(`API Error [${error.response?.status || 'No Status'}]:`, errorMessage);
-    
+
     return Promise.reject({
       message: errorMessage,
       status: error.response?.status,
@@ -70,7 +70,6 @@ api.interceptors.response.use(
     });
   }
 );
-
 // =========================
 // Helper Functions
 // =========================
