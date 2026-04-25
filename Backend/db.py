@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 
 # Database URL from environment variable
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://healthai:yourpassword@db:5432/healthai_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://admin:admin@db:5432/healthai_db")
 
 # Create engine
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -127,7 +127,7 @@ def init_db():
     """
     print("INFO: Creating database tables...")
     Base.metadata.create_all(bind=engine)
-    print("INFO: ✅ Database tables created successfully")
+    print("INFO: Database tables created successfully")
 
 
 def check_db_connection():
@@ -139,7 +139,7 @@ def check_db_connection():
         db = SessionLocal()
         db.execute("SELECT 1")
         db.close()
-        print("INFO: ✅ Database connection successful")
+        print("INFO: Database connection successful")
         return True
     except Exception as e:
         print(f"ERROR: Database connection failed: {e}")

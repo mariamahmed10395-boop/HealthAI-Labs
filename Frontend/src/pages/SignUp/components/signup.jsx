@@ -20,20 +20,22 @@ export default function SignupComponent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) return setError('Passwords do not match');
-
+    setLoading(true);
+    setError('');
     try {
       const result = await signupUser({
         full_name: fullName,
         email,
         password
       });
-
       if (result.access_token) {
         login(result.user, result.access_token);
         navigate('/');
       }
-    } catch {
-      setError('Signup failed.');
+    } catch (err) {
+      setError(err.message || 'Signup failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -72,13 +74,17 @@ export default function SignupComponent() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <Input icon={<User className="w-5 h-5" />} placeholder="Full Name" value={fullName} onChange={setFullName} />
-          <Input icon={<Mail className="w-5 h-5" />} placeholder="Email" value={email} onChange={setEmail} />
-          <Input icon={<Lock className="w-5 h-5" />} placeholder="Password" type="password" value={password} onChange={setPassword} />
-          <Input icon={<Lock className="w-5 h-5" />} placeholder="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} />
+          <Input icon={<User className="w-5 h-5" />} placeholder="Full Name" value={fullName} onChange={setFullName} disabled={loading} />
+          <Input icon={<Mail className="w-5 h-5" />} placeholder="Email" type="email" value={email} onChange={setEmail} disabled={loading} />
+          <Input icon={<Lock className="w-5 h-5" />} placeholder="Password" type="password" value={password} onChange={setPassword} disabled={loading} />
+          <Input icon={<Lock className="w-5 h-5" />} placeholder="Confirm Password" type="password" value={confirmPassword} onChange={setConfirmPassword} disabled={loading} />
 
-          <button className="w-full py-3 text-white bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg font-semibold shadow hover:shadow-blue-500/50 transition">
-            Create Account
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 text-white bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg font-semibold shadow hover:shadow-blue-500/50 transition disabled:opacity-50"
+          >
+            {loading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>
 
@@ -92,8 +98,10 @@ export default function SignupComponent() {
           <div className="relative group">
             <div className="absolute -inset-1 bg-blue-500 blur opacity-0 group-hover:opacity-100 transition"></div>
             <button
+              type="button"
               onClick={() => googleLogin()}
-              className="relative w-16 h-16 bg-white rounded-full shadow-xl flex items-center justify-center hover:shadow-blue-400/50 transition"
+              disabled={loading}
+              className="relative w-16 h-16 bg-white rounded-full shadow-xl flex items-center justify-center hover:shadow-blue-400/50 transition disabled:opacity-50"
             >
               <svg className="w-8 h-8" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -106,7 +114,8 @@ export default function SignupComponent() {
         </div>
 
         <div className="mt-6 text-center text-sm">
-          Already have an account? <Link className="text-blue-600 font-semibold hover:underline" to="/login">Sign in</Link>
+          Already have an account?{' '}
+          <Link className="text-blue-600 font-semibold hover:underline" to="/login">Sign in</Link>
         </div>
 
       </div>
@@ -114,7 +123,7 @@ export default function SignupComponent() {
   );
 }
 
-function Input({ icon, placeholder, value, onChange, type = 'text' }) {
+function Input({ icon, placeholder, value, onChange, type = 'text', disabled = false }) {
   return (
     <div className="relative">
       <div className="absolute left-3 top-3 text-gray-400">{icon}</div>
@@ -123,7 +132,8 @@ function Input({ icon, placeholder, value, onChange, type = 'text' }) {
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+        disabled={disabled}
+        className="w-full pl-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         required
       />
     </div>

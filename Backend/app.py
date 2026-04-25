@@ -100,7 +100,7 @@ def load_mri_model():
         
         # We extract the default serving signature (acts like a function)
         MRI_MODEL = loaded_bundle.signatures['serving_default']
-        print("INFO: ✅ MRI Model loaded successfully")
+        print("INFO: MRI Model loaded successfully")
     except Exception as e:
         print(f"ERROR: Failed to load MRI model: {e}")
         MRI_MODEL = None
@@ -158,7 +158,7 @@ def load_ckd_models():
         CKD_DIAGNOSIS_MODEL = joblib.load(CKD_DIAGNOSIS_PATH)
         CKD_STAGE_MODEL = joblib.load(CKD_STAGE_PATH)
         CKD_MODEL_READY = True
-        print("INFO: ✅ CKD Models loaded successfully")
+        print("INFO: CKD Models loaded successfully")
     except Exception as e:
         print(f"ERROR: Failed to load CKD models: {e}")
         CKD_MODEL_READY = False
@@ -178,7 +178,7 @@ def load_ascvd_model():
         print(f"INFO: Loading ASCVD Risk Estimator model from {ASCVD_MODEL_PATH}...")
         ASCVD_MODEL = joblib.load(ASCVD_MODEL_PATH)
         ASCVD_MODEL_READY = True
-        print("INFO: ✅ ASCVD Risk Estimator Model loaded successfully")
+        print("INFO: ASCVD Risk Estimator Model loaded successfully")
     except Exception as e:
         print(f"ERROR: Failed to load ASCVD Risk Estimator model: {e}")
         ASCVD_MODEL_READY = False
@@ -270,7 +270,7 @@ def startup_event():
     load_ckd_models()
     load_ascvd_model()
     
-    print("INFO: ✅ HealthAI Backend started successfully")
+    print("INFO: HealthAI Backend started successfully")
 
 # -------------------------
 # Root Endpoints

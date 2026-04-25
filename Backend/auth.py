@@ -161,7 +161,7 @@ def google_auth(auth_data: GoogleAuthRequest, db: Session = Depends(get_db)):
     """
 
     try:
-        # ✅ Get user info directly from Google
+        # Get user info directly from Google
         google_user_info = requests.get(
             "https://www.googleapis.com/oauth2/v3/userinfo",
             headers={"Authorization": f"Bearer {auth_data.credential}"}

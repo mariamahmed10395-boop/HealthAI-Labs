@@ -17,56 +17,57 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Check if user is authenticated
-        const hasAuth = isAuthenticated();
+        const hasAuth = isAuthenticated(); // ✅ checks JWT expiry locally, no network call
         console.log('🔐 Auth check - hasAuth:', hasAuth);
 
         if (hasAuth) {
-          // Get user from localStorage first (faster, works offline)
           const storedUser = getCurrentUserData();
           console.log('🔐 Stored user:', storedUser);
-          
+
+          // Set from localStorage immediately so UI isn't blocked
           if (storedUser) {
-            // Set user immediately from localStorage
             setUser(storedUser);
           }
 
-          // Then try to fetch fresh data from API in background
+          // Try to refresh from API in background
           try {
             const userData = await getCurrentUser();
             console.log('🔐 Fresh user data from API:', userData);
-            
-            // Update if we got fresh data
+
             if (userData) {
               setUser(userData);
-              // Update localStorage with fresh data
               localStorage.setItem('user', JSON.stringify(userData));
             }
           } catch (apiError) {
-            // API call failed, but we already have user from localStorage
-            console.warn('🔐 Could not fetch fresh user data, using stored data:', apiError.message);
-            
-            // If we don't have stored user either, clear auth
-            if (!storedUser) {
-              console.log('🔐 No stored user and API failed, clearing auth');
+            console.warn('🔐 Could not fetch fresh user data:', apiError.message);
+
+            if (apiError.status === 401) {
+              // Token is rejected by backend — clear everything
+              console.log('🔐 401 from /auth/me — clearing auth');
               localStorage.removeItem('auth_token');
               localStorage.removeItem('user');
               setUser(null);
+            } else if (!storedUser) {
+              // Network error and no cached user to fall back on
+              console.log('🔐 Network error and no stored user — clearing auth');
+              setUser(null);
             }
-            // Don't set error here - just log it
-            // The app should work with stored user data
+            // If it's a network error but we DO have storedUser,
+            // keep them logged in with cached data — don't clear
           }
         } else {
-          console.log('🔐 No authentication found');
+          // Token missing or expired locally — clear any stale data
+          console.log('🔐 No valid auth token found');
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          setUser(null);
         }
       } catch (err) {
         console.error('🔐 Auth check error:', err);
-        // Don't throw error - just log it and continue
-        // The app should still render without user
+        // Unexpected error — don't block the app
       } finally {
         console.log('🔐 Auth check complete, setting loading to false');
         setLoading(false);
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }) => {
 
     checkAuth();
 
-    // Listen for storage changes (for cross-tab logout)
+    // Cross-tab logout support
     const handleStorageChange = (e) => {
       if (e.key === 'auth_token' || e.key === 'user') {
         console.log('🔐 Storage changed, rechecking auth');
@@ -83,7 +84,7 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    // Listen for auth expiration events
+    // Fired by axios interceptor on 401 (non-auth endpoints)
     const handleAuthExpired = () => {
       console.log('🔐 Auth expired event received');
       setUser(null);
@@ -92,7 +93,7 @@ export const AuthProvider = ({ children }) => {
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('auth_expired', handleAuthExpired);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('auth_expired', handleAuthExpired);
@@ -117,12 +118,10 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(async () => {
     try {
       console.log('🔐 Logout initiated');
-      // Try to call logout API, but don't fail if it errors
       await apiLogoutUser();
     } catch (err) {
       console.warn('🔐 Logout API call failed (continuing anyway):', err);
     } finally {
-      // Always clear local data
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
       setUser(null);
@@ -157,7 +156,6 @@ export const AuthProvider = ({ children }) => {
       return null;
     } catch (err) {
       console.error('🔐 Refresh user error:', err);
-      // Don't set error - use existing user data
       return user; // Return current user if refresh fails
     }
   }, [updateUser, user]);
@@ -171,7 +169,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     refreshUser,
-    clearError: () => setError(null)
+    clearError: () => setError(null),
   };
 
   console.log('🔐 AuthProvider rendering - user:', user?.email || 'none', 'loading:', loading);

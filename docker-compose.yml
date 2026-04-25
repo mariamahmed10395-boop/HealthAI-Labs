@@ -1,21 +1,20 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   db:
     image: postgres:15-alpine
     container_name: healthai_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: healthai
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
       POSTGRES_DB: healthai_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U healthai"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d healthai_db"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -23,29 +22,28 @@ services:
     networks:
       - healthai-network
 
-  # MinIO Object Storage
   minio:
     image: minio/minio:latest
     container_name: healthai_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: minio-admin123
+      MINIO_ROOT_PASSWORD: minio-admin123
     volumes:
       - minio_data:/data
     ports:
       - "9000:9000"
       - "9001:9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # Use mc (minio client) instead of curl — it's always available in the image
+      test: ["CMD", "mc", "ready", "local"]
       interval: 30s
       timeout: 20s
       retries: 3
+      start_period: 10s
     networks:
-      - healthai-network
-
-  # Backend API
+      - healthai-network # Backend API
   backend:
     build:
       context: ./Backend
@@ -54,10 +52,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - ./.env
     environment:
-      DATABASE_URL: postgresql://healthai:${DB_PASSWORD}@db:5432/healthai_db
+      DATABASE_URL: postgresql://admin:admin@db:5432/healthai_db
     volumes:
       - ./Backend/uploads:/app/uploads
       - ./Backend/logs:/app/logs
