@@ -1,223 +1,182 @@
+# HealthAI Labs
+
+A full-stack AI-powered health analysis platform built with FastAPI, React, PostgreSQL, and MinIO.
+
+---
+
+# ✅ Prerequisites
+
+You only need **Docker** and **Docker Compose** — no Python, Node.js, or any other runtime required.
+
+### 🐧 Linux
+
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+
+# Add your user to the docker group (no sudo needed after this)
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify
+docker --version
+docker compose version
+```
+
+> Docker Compose v2 is bundled with Docker. No separate install needed.
+
+---
+
+### 🪟 Windows
+
+1. Download and install **Docker Desktop** from https://www.docker.com/products/docker-desktop
+2. Enable **WSL 2** when prompted during setup (recommended)
+3. Once Docker Desktop is running, open a terminal and verify:
+
+```cmd
+docker --version
+docker compose version
+```
+
+---
+
+### 🍎 macOS
+
+1. Download and install **Docker Desktop** from https://www.docker.com/products/docker-desktop
+2. Open Docker Desktop and wait for it to start
+3. Verify in a terminal:
+
+```bash
+docker --version
+docker compose version
+```
+
+---
+
 # 📁 Clone the Project
 
 ```bash
-git clone https://github.com/passw0rd010/healthai-labs.git
-cd healthai-labs
-```
-
----
-
-# 🔐 Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-GNEWS_API_KEY=your_gnews_api_key_here
-```
-
-If missing, backend returns **mock news** automatically.
-
----
-
-# 🐳 Docker Compose (Pulling Images From Docker Hub)
-
-This project uses prebuilt images:
-
-- **Backend** → `passw0rd010/healthai-labs:backend`  
-- **Frontend** → `passw0rd010/healthai-labs:frontend`  
-
-Here is the full `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: healthai_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: healthai
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: healthai_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U healthai"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - healthai-network
-
-  # MinIO Object Storage
-  minio:
-    image: minio/minio:latest
-    container_name: healthai_minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - healthai-network
-
-  # Backend API
-  backend:
-    image: passw0rd010/healthai-backend:latest
-    container_name: healthai-backend
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file:
-      - ./.env  # Path to .env in root
-    environment:
-      DATABASE_URL: postgresql://healthai:${DB_PASSWORD}@db:5432/healthai_db
-    volumes:
-      - backend_uploads:/app/uploads
-      - backend_logs:/app/logs
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - healthai-network
-    command: >
-      sh -c '
-      echo "Waiting for database to be ready...";
-      for i in 1 2 3 4 5 6 7 8 9 10; do
-        echo "Attempt $$i: Checking database connection...";
-        if python -c "from db import check_db_connection; check_db_connection()"; then
-          echo "Database is ready!";
-          break;
-        fi;
-        if [ $$i -eq 10 ]; then
-          echo "Database connection failed after 10 attempts";
-          exit 1;
-        fi;
-        echo "Database not ready, waiting 3 seconds...";
-        sleep 3;
-      done;
-      echo "Initializing database tables...";
-      python -c "from db import init_db; init_db()";
-      echo "Starting uvicorn server...";
-      uvicorn app:app --host 0.0.0.0 --port 8000 --workers 1 --log-level info
-      '
-
-  # Frontend (React + Nginx)
-  frontend:
-    image: passw0rd010/healthai-frontend:latest
-    container_name: healthai-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    networks:
-      - healthai-network
-
-volumes:
-  postgres_data:
-  minio_data:
-  backend_uploads:
-  backend_logs:
-
-networks:
-  healthai-network:
-    driver: bridge
+git clone https://github.com/co-op-projects-to-boost-my-experience/HealthAI-Labs.git
+cd HealthAI-Labs
 ```
 
 ---
 
 # 🚀 Run the App
 
-Start everything:
+Docker Compose will build the backend and frontend images from source automatically — no manual build steps needed.
 
 ```bash
-docker-compose up -d
-or
-docker compose up -d
+docker compose up -d --build
 ```
 
-Backend → http://localhost:8000  
-Frontend → http://localhost  
+Then open your browser:
+
+- **Frontend** → http://localhost
+- **Backend API** → http://localhost:8000
+- **MinIO Console** → http://localhost:9001 (user: `minio-admin123`, pass: `minio-admin123`)
 
 Check running containers:
+
 ```bash
 docker ps
 ```
+
+Stream logs:
+
+```bash
+docker compose logs -f
+```
+
+Stream logs for a specific service:
+
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+---
+
+# 🏗️ Project Structure
+
+```
+HealthAI-Labs/
+├── docker-compose.yml        ← run this from here
+├── Backend/
+│   ├── Dockerfile.Backend
+│   └── ...
+└── Frontend/
+    ├── Dockerfile.Frontend
+    └── ...
+```
+
+> All `docker compose` commands must be run from the **root of the repo** where `docker-compose.yml` lives.
 
 ---
 
 # 🛑 Stop the App
 
 ```bash
-docker-compose down
-or
 docker compose down
 ```
 
-Remove containers + volumes:
+Remove containers and all data volumes (resets the database):
+
 ```bash
-docker-compose down -v
+docker compose down -v
 ```
 
 ---
 
-# 🔄 Update to Newest Images
+# 🔄 Rebuild After Code Changes
+
+If you modify any source files, rebuild the affected service:
 
 ```bash
-docker pull  passw0rd010/healthai-backendend:latest
-docker pull  passw0rd010/healthai-frontend:latest
-docker-compose up -d --force-recreate
+# Rebuild everything
+docker compose up -d --build
+
+# Rebuild only the backend
+docker compose up -d --build backend
+
+# Rebuild only the frontend
+docker compose up -d --build frontend
 ```
 
 ---
 
-# 🧪 Test Backend
+# 🧪 Test the Backend
 
 ```bash
 curl http://localhost:8000/
 curl http://localhost:8000/api/news
-curl http://localhost:8000/rays
-```
-
----
-
-# 🌐 Frontend Access
-
-Open in browser:
-
-```
-http://localhost
+curl http://localhost:8000/api/analysis
 ```
 
 ---
 
 # ❗ Troubleshooting
 
-### Backend API key missing
-Check `.env` file.
+### Backend fails to start — database not ready
+The backend retries the database connection up to 10 times with a 3-second delay between attempts. If it still fails, check the database logs:
+
+```bash
+docker compose logs db
+```
 
 ### "Port already in use"
-Edit ports in `docker-compose.yml`.
+Another process is using port 80, 8000, 5432, or 9000. Either stop that process or edit the `ports` mapping in `docker-compose.yml`, for example change `"80:80"` to `"8080:80"` and access the frontend at http://localhost:8080.
 
-### Log errors
+### Permission denied running docker (Linux)
+Make sure you ran `sudo usermod -aG docker $USER` then opened a **new** terminal session or ran `newgrp docker`.
+
+### Frontend shows blank page or old version
+Force a clean rebuild with no cache:
+
 ```bash
-docker-compose logs -f
+docker compose down
+docker compose build --no-cache frontend
+docker compose up -d
 ```
 
 ---
@@ -225,5 +184,3 @@ docker-compose logs -f
 # 🤝 Contributing
 
 Pull requests and issues are welcome!
-
-
